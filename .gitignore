@@ -222,3 +222,4 @@ __marimo__/
 credentials.json
 service_account.json
 get_refresh_token.py
+.claude/
