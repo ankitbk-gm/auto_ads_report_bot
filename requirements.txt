@@ -1,0 +1,6 @@
+google-ads
+requests
+gspread
+google-auth
+pandas
+python-dotenv
