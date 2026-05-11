@@ -216,5 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+#credentials not meant to be shared
 .env
 credentials.json
+service_account.json
+get_refresh_token.py
