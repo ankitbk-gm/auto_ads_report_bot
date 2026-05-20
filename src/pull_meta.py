@@ -31,7 +31,6 @@ HEADERS = [
     "Installs", "CPM", "CPI",
 ]
 
-INITIAL_RUN_START = "2026-05-01"
 ROLLING_DAYS = 90
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -60,6 +59,19 @@ def get_yesterday_ist() -> str:
 
 def get_today_ist() -> str:
     return get_ist_now().strftime("%Y-%m-%d")
+
+
+def get_month_start_ist() -> str:
+    """Return the 1st of the current IST month as YYYY-MM-DD."""
+    return get_ist_now().replace(day=1).strftime("%Y-%m-%d")
+
+
+def get_existing_dates(worksheet: gspread.Worksheet) -> set[str]:
+    """Return the set of date strings found in column A (excluding header)."""
+    all_values = worksheet.get_all_values()
+    if len(all_values) <= 1:
+        return set()
+    return {row[0] for row in all_values[1:] if row and row[0]}
 
 
 def _action_value(items: list, action_type: str) -> str:
@@ -219,10 +231,6 @@ def ensure_headers(worksheet: gspread.Worksheet) -> None:
         worksheet.update("A1", [HEADERS])
 
 
-def is_initial_run(worksheet: gspread.Worksheet) -> bool:
-    return len(worksheet.get_all_values()) <= 1
-
-
 def purge_old_rows(worksheet: gspread.Worksheet, cutoff_date: str) -> int:
     all_rows = worksheet.get_all_values()
     if len(all_rows) <= 1:
@@ -290,9 +298,10 @@ def main():
             print(f"ERROR: {var} not set in environment")
         sys.exit(1)
 
-    now_str   = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
-    today     = get_today_ist()
-    yesterday = get_yesterday_ist()
+    now_str     = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    today       = get_today_ist()
+    yesterday   = get_yesterday_ist()
+    month_start = get_month_start_ist()
     cutoff_date = (
         datetime.strptime(yesterday, "%Y-%m-%d") - timedelta(days=ROLLING_DAYS - 1)
     ).strftime("%Y-%m-%d")
@@ -304,21 +313,33 @@ def main():
         print(f"ERROR: Failed to connect to Google Sheets — {e}")
         sys.exit(1)
 
-    if is_initial_run(worksheet):
-        start_date = INITIAL_RUN_START
-        end_date   = today
+    existing_dates = get_existing_dates(worksheet)
+
+    if not existing_dates:
+        # Empty sheet: backfill from 1st of current month through today
+        date_set: set[str] = set()
+        d = datetime.strptime(month_start, "%Y-%m-%d")
+        end_d = datetime.strptime(today, "%Y-%m-%d")
+        while d <= end_d:
+            date_set.add(d.strftime("%Y-%m-%d"))
+            d += timedelta(days=1)
+        print(f"Empty sheet — backfilling Meta Ads data from {month_start} to {today} ({len(date_set)} days)...")
     else:
-        start_date = yesterday
-        end_date   = yesterday
+        last_date = max(existing_dates)
+        # Gap fill: last_date+1 through yesterday, then add yesterday and today
+        date_set = set()
+        d = datetime.strptime(last_date, "%Y-%m-%d") + timedelta(days=1)
+        end_d = datetime.strptime(yesterday, "%Y-%m-%d")
+        while d <= end_d:
+            date_set.add(d.strftime("%Y-%m-%d"))
+            d += timedelta(days=1)
+        date_set.add(yesterday)
+        date_set.add(today)
+        print(f"Fetching Meta Ads data — last date in sheet: {last_date}, dates to process: {len(date_set)}...")
 
-    date_range: list[str] = []
-    d = datetime.strptime(start_date, "%Y-%m-%d")
-    while d <= datetime.strptime(end_date, "%Y-%m-%d"):
-        date_range.append(d.strftime("%Y-%m-%d"))
-        d += timedelta(days=1)
-
-    label = start_date if start_date == end_date else f"{start_date} to {end_date}"
-    print(f"Fetching Meta Ads data for {label} ({len(date_range)} day(s))...")
+    date_range: list[str] = sorted(date_set)
+    label = date_range[0] if len(date_range) == 1 else f"{date_range[0]} to {date_range[-1]}"
+    print(f"Processing {len(date_range)} day(s): {label}")
 
     all_sheet_rows: list[list] = []
     total_raw = 0

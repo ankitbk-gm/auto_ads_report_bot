@@ -223,3 +223,6 @@ credentials.json
 service_account.json
 get_refresh_token.py
 .claude/
+gmail_credentials.json
+gmail_token.json
+debug_we.py
