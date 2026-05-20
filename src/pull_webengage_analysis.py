@@ -30,7 +30,7 @@ SCOPES = [
 
 WEBENGAGE_SHEET_ID = os.getenv("WEBENGAGE_SHEET_ID")
 REPORT_SHEET_ID    = os.getenv("REPORT_SHEET_ID")
-ONEDRIVE_PATH      = r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx"
+ONEDRIVE_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx")
 REPORT_TAB         = "Webengage_Analysis"
 
 
@@ -447,6 +447,7 @@ def assemble_google_rows(now_ist_str, month_label,
                          r1_h, r1_rows,
                          r2_h, r2_total, r2_ch_h, r2_ch_rows,
                          r4_jc_h, r4_jc_rows, r4_j_h, r4_j_rows,
+                         r4_cl_h, r4_cl_rows,
                          r5_h, r5_rows,
                          r7_ov_h, r7_ov_rows, r7_seg_h, r7_seg_rows, r7_type_h, r7_type_rows):
     rows = [[f"Last Updated: {now_ist_str}"], [f"Period: {month_label}"], []]
@@ -455,6 +456,7 @@ def assemble_google_rows(now_ist_str, month_label,
     rows += section("2. Team Engagement — By Channel",                 r2_ch_h,  r2_ch_rows)
     rows += section("4. Journey Funnel — By Journey & Channel",        r4_jc_h,  r4_jc_rows)
     rows += section("4. Journey Funnel — By Journey (Aggregated)",     r4_j_h,   r4_j_rows)
+    rows += section("4. Journey Funnel — Classified",                  r4_cl_h,  r4_cl_rows)
     rows += section("5. WhatsApp Failure Analysis",                    r5_h,     r5_rows)
     rows += section("7. Push Engagement — Overall",                    r7_ov_h,  r7_ov_rows)
     rows += section("7. Push Engagement — By Segment",                 r7_seg_h, r7_seg_rows)
@@ -593,6 +595,7 @@ def main():
         r1_h, r1_rows,
         r2_h, r2_total, r2_ch_h, r2_ch_rows,
         r4_jc_h, r4_jc_rows, r4_j_h, r4_j_rows,
+        r4_cl_h, r4_cl_rows,
         r5_h, r5_rows,
         r7_ov_h, r7_ov_rows, r7_seg_h, r7_seg_rows, r7_type_h, r7_type_rows
     )

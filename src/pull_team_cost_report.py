@@ -38,7 +38,7 @@ SCOPES = [
 GOOGLE_SHEET_ID     = os.getenv("GOOGLE_SHEET_ID")
 WEBENGAGE_SHEET_ID  = os.getenv("WEBENGAGE_SHEET_ID")
 REPORT_SHEET_ID     = os.getenv("REPORT_SHEET_ID")
-ONEDRIVE_EXCEL_PATH = r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx"
+ONEDRIVE_EXCEL_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx")
 
 TEAMS = ["Customer Support", "Superstar", "Marketing Onboarding", "Marketing Retention", "Voice AI", "Supply"]
 

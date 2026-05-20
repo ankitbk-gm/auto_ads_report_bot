@@ -225,5 +225,48 @@ get_refresh_token.py
 .claude/
 gmail_credentials.json
 gmail_token.json
+
+# ── Sensitive credentials — NEVER commit these ────────────────────────────────
+.env
+service_account.json
+gmail_credentials.json
+gmail_token.json
+credentials.json
+get_refresh_token.py
 debug_we.py
-.claude/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Local test files ──────────────────────────────────────────────────────────
+debug_*.py
+verify_*.py
+test_*.py
+scratch_*.py

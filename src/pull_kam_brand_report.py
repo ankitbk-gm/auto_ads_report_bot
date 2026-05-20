@@ -38,7 +38,7 @@ GOOGLE_SHEET_ID         = os.getenv("GOOGLE_SHEET_ID")
 REPORT_SHEET_ID         = os.getenv("REPORT_SHEET_ID")
 GOOGLE_UNIQUE_USERS_SID = os.getenv("GOOGLE_UNIQUE_USERS_SHEET_ID")
 GOOGLE_UNIQUE_USERS_TAB = os.getenv("GOOGLE_UNIQUE_USERS_TAB", "campaign_unique")
-ONEDRIVE_PATH           = r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx"
+ONEDRIVE_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx")
 
 GOOGLE_META_GST = 1.18
 

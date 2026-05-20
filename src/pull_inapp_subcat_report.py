@@ -39,7 +39,7 @@ SCOPES = [
 
 WEBENGAGE_SHEET_ID = os.getenv("WEBENGAGE_SHEET_ID")
 REPORT_SHEET_ID    = os.getenv("REPORT_SHEET_ID")
-ONEDRIVE_PATH      = r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx"
+ONEDRIVE_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", r"C:\Users\anitb\OneDrive - Agrim Wholesale Private Limited\Marketing_Reports\Team Wise Cost.xlsx")
 
 STORE_TAB   = "Inapp_Subcat_Store"
 REPORT_TAB  = "Inapp_Subcat_Report"
