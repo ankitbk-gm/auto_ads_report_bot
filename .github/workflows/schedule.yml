@@ -1,0 +1,87 @@
+name: Daily Marketing Reports
+
+on:
+  schedule:
+    - cron: '30 22 * * *'   # 4 AM IST
+    - cron: '30 12 * * *'   # 6 PM IST
+  workflow_dispatch:          # Manual trigger from GitHub UI
+
+jobs:
+  run_reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write credentials
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
+          echo '${{ secrets.GMAIL_CREDENTIALS_JSON }}' > gmail_credentials.json
+          echo '${{ secrets.GMAIL_TOKEN_JSON }}' > gmail_token.json
+
+      - name: Write .env
+        run: |
+          cat << EOF > .env
+          GOOGLE_SHEET_ID=${{ secrets.GOOGLE_SHEET_ID }}
+          REPORT_SHEET_ID=${{ secrets.REPORT_SHEET_ID }}
+          WEBENGAGE_SHEET_ID=${{ secrets.WEBENGAGE_SHEET_ID }}
+          GOOGLE_UNIQUE_USERS_SHEET_ID=${{ secrets.GOOGLE_UNIQUE_USERS_SHEET_ID }}
+          GOOGLE_UNIQUE_USERS_TAB=${{ secrets.GOOGLE_UNIQUE_USERS_TAB }}
+          GOOGLE_ADGROUP_UNIQUE_USERS_TAB=${{ secrets.GOOGLE_ADGROUP_UNIQUE_USERS_TAB }}
+          GOOGLE_SERVICE_ACCOUNT_PATH=service_account.json
+          GOOGLE_SERVICE_ACCOUNT_EMAIL=${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GMAIL_CREDENTIALS_PATH=gmail_credentials.json
+          GMAIL_TOKEN_PATH=gmail_token.json
+          WEBENGAGE_SENDER_EMAIL=${{ secrets.WEBENGAGE_SENDER_EMAIL }}
+          META_ACCESS_TOKEN=${{ secrets.META_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID=${{ secrets.META_AD_ACCOUNT_ID }}
+          WATI_API_TOKEN=${{ secrets.WATI_API_TOKEN }}
+          WATI_ACCOUNT_ID=${{ secrets.WATI_ACCOUNT_ID }}
+          WATI_TENANT_ID=${{ secrets.WATI_TENANT_ID }}
+          WATI_API_ENDPOINT=${{ secrets.WATI_API_ENDPOINT }}
+          APPTROVE_MMP_API_KEY=${{ secrets.APPTROVE_MMP_API_KEY }}
+          APPTROVE_APP_ID=${{ secrets.APPTROVE_APP_ID }}
+          EOF
+
+      # ── Data pull scripts ──────────────────────────────────────────────────
+      - name: Pull Meta Ads
+        run: python src/pull_meta.py
+
+      - name: Pull Apptrove MMP
+        run: python src/pull_apptrove_mmp.py
+
+      - name: Pull Wati
+        run: python src/pull_wati.py
+
+      - name: Pull WebEngage Gmail
+        run: python src/pull_webengage_gmail.py
+
+      # ── Report scripts ─────────────────────────────────────────────────────
+      - name: Team Cost Report
+        run: python src/pull_team_cost_report.py
+
+      - name: Onboarding Report
+        run: python src/pull_onboarding_report.py
+
+      - name: Retention Report
+        run: python src/pull_retention_report.py
+
+      - name: KAM Brand Report
+        run: python src/pull_kam_brand_report.py
+
+      - name: In-app Subcat Report
+        run: python src/pull_inapp_subcat_report.py
+
+      - name: WebEngage Analysis
+        run: python src/pull_webengage_analysis.py
