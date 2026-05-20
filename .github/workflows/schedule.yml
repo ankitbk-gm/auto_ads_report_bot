@@ -9,7 +9,7 @@ on:
 jobs:
   run_reports:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -59,29 +59,47 @@ jobs:
         run: python src/pull_meta.py
 
       - name: Pull Apptrove MMP
-        run: python src/pull_apptrove_mmp.py
+        run: |
+          sleep 10
+          python src/pull_apptrove_mmp.py
 
       - name: Pull Wati
-        run: python src/pull_wati.py
+        run: |
+          sleep 10
+          python src/pull_wati.py
 
       - name: Pull WebEngage Gmail
-        run: python src/pull_webengage_gmail.py
+        run: |
+          sleep 10
+          python src/pull_webengage_gmail.py
 
       # ── Report scripts ─────────────────────────────────────────────────────
       - name: Team Cost Report
-        run: python src/pull_team_cost_report.py
+        run: |
+          sleep 30
+          python src/pull_team_cost_report.py
 
       - name: Onboarding Report
-        run: python src/pull_onboarding_report.py
+        run: |
+          sleep 30
+          python src/pull_onboarding_report.py
 
       - name: Retention Report
-        run: python src/pull_retention_report.py
+        run: |
+          sleep 30
+          python src/pull_retention_report.py
 
       - name: KAM Brand Report
-        run: python src/pull_kam_brand_report.py
+        run: |
+          sleep 30
+          python src/pull_kam_brand_report.py
 
       - name: In-app Subcat Report
-        run: python src/pull_inapp_subcat_report.py
+        run: |
+          sleep 30
+          python src/pull_inapp_subcat_report.py
 
       - name: WebEngage Analysis
-        run: python src/pull_webengage_analysis.py
+        run: |
+          sleep 30
+          python src/pull_webengage_analysis.py
