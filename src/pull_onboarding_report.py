@@ -85,14 +85,26 @@ def in_range(date_val, start, end):
 
 # ── Read sheet ─────────────────────────────────────────────────────────────────
 
-def read_sheet(gc, sheet_id, tab_name):
-    sh   = gc.open_by_key(sheet_id)
-    ws   = sh.worksheet(tab_name)
-    rows = ws.get_all_values()
-    if not rows or len(rows) < 2:
-        return []
-    headers = rows[0]
-    return [dict(zip(headers, row)) for row in rows[1:]]
+def read_sheet(gc, sheet_id, tab_name, retries=4, backoff=10):
+    """Read a Google Sheet tab with retry on transient 5xx errors."""
+    import time
+    for attempt in range(1, retries + 1):
+        try:
+            sh   = gc.open_by_key(sheet_id)
+            ws   = sh.worksheet(tab_name)
+            rows = ws.get_all_values()
+            if not rows or len(rows) < 2:
+                return []
+            headers = rows[0]
+            return [dict(zip(headers, row)) for row in rows[1:]]
+        except Exception as e:
+            msg = str(e)
+            if attempt < retries and any(code in msg for code in ["503","500","429","502"]):
+                wait = backoff * attempt
+                print(f"  [read_sheet] {tab_name} attempt {attempt} failed ({msg[:60]}), retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
 
 
 # ── Campaign classification ────────────────────────────────────────────────────
