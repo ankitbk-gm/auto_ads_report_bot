@@ -294,8 +294,8 @@ def process_meta(gc, mtd_start, mtd_end, mtd1_end):
     def empty():
         return {"spend": 0.0, "impressions": 0}
 
-    mtd  = {"Brand": empty(), "Subcat": empty()}
-    mtd1 = {"Brand": empty(), "Subcat": empty()}
+    mtd  = defaultdict(empty)
+    mtd1 = defaultdict(empty)
     active_campaigns = set()
 
     for row in rows:
@@ -328,7 +328,7 @@ def process_meta(gc, mtd_start, mtd_end, mtd1_end):
             mtd1[cls]["impressions"] += impr
 
     for period in [mtd, mtd1]:
-        for cls in ["Brand", "Subcat"]:
+        for cls in period:
             period[cls]["spend"] = round(period[cls]["spend"], 2)
 
     return mtd, mtd1, active_campaigns
