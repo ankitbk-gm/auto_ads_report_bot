@@ -105,6 +105,11 @@ jobs:
           sleep 30
           python src/pull_webengage_analysis.py
 
+      - name: Previous Month Report
+        run: |
+          sleep 30
+          python src/pull_prev_month_report.py
+
       # ── Commit Excel report back to repo ──────────────────────────────────
       - name: Commit Excel report
         run: |

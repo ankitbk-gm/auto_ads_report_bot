@@ -56,17 +56,16 @@ def get_periods():
     yesterday = today - timedelta(days=1)
     mtd_start = today.replace(day=1)
 
+    # On month boundary (e.g. June 1), yesterday is in previous month.
+    # In that case use today as mtd_end to stay in current month.
+    mtd_start = today.replace(day=1)
+
     if now_ist.hour < 12:
-        mtd_end  = yesterday
-        mtd1_end = yesterday - timedelta(days=1)
+        mtd_end  = yesterday if yesterday.month == today.month else today
+        mtd1_end = (mtd_end - timedelta(days=1)) if mtd_end > mtd_start else mtd_start
     else:
         mtd_end  = today
-        mtd1_end = yesterday
-
-    # Fix: derive mtd_start from mtd_end's month, not today's
-    # Prevents inverted range on 1st of month before 12 PM
-    # e.g. June 1 before 12 PM: mtd_end=May 31, so mtd_start=May 1 (correct)
-    mtd_start = mtd_end.replace(day=1)
+        mtd1_end = yesterday if yesterday.month == today.month else mtd_start
 
     return mtd_start, mtd_end, mtd1_end
 

@@ -59,13 +59,16 @@ def get_periods():
     now_ist   = datetime.now(IST)
     today     = now_ist.date()
     yesterday = today - timedelta(days=1)
+    # On month boundary, yesterday is in previous month — use today instead
+    mtd_start = today.replace(day=1)
+
     if now_ist.hour < 12:
-        mtd_end  = yesterday
-        mtd1_end = yesterday - timedelta(days=1)
+        mtd_end  = yesterday if yesterday.month == today.month else today
+        mtd1_end = (mtd_end - timedelta(days=1)) if mtd_end > mtd_start else mtd_start
     else:
         mtd_end  = today
-        mtd1_end = yesterday
-    mtd_start = mtd_end.replace(day=1)
+        mtd1_end = yesterday if yesterday.month == today.month else mtd_start
+
     return mtd_start, mtd_end, mtd1_end
 
 
