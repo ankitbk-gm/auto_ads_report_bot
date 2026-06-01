@@ -80,6 +80,11 @@ def get_periods():
         mtd_end  = today
         mtd1_end = yesterday
 
+    # Fix: derive mtd_start from mtd_end's month, not today's
+    # Prevents inverted range on 1st of month before 12 PM
+    # e.g. June 1 before 12 PM: mtd_end=May 31, so mtd_start=May 1 (correct)
+    mtd_start = mtd_end.replace(day=1)
+
     return mtd_start, mtd_end, mtd1_end
 
 
@@ -105,10 +110,11 @@ def classify_google_adgroup(adgroup):
         return "Brand"
     if "categor" in n:
         return "Subcat"
-    return None
+    # Unknown type — use actual adgroup name as segment label
+    return adgroup.strip() if adgroup.strip() else "Other"
 
 
-def classify_meta_ad(ad):
+def classify_meta_ad_name(ad):
     n = ad.lower()
     if "brand" in n:
         return "Brand"
@@ -118,7 +124,21 @@ def classify_meta_ad(ad):
         return "Subcat"
     if "gibberellic" in n:
         return "Subcat"
-    return "Brand"
+    # Unknown type — use actual ad name as segment label
+    return ad.strip() if ad.strip() else "Other"
+
+
+def get_segments(spend_dict):
+    """Sort segments: Brand first, Subcat second, others alphabetically."""
+    def order(cls):
+        if cls == "Brand":  return (0, cls)
+        if cls == "Subcat": return (1, cls)
+        return (2, cls)
+    return sorted(spend_dict.keys(), key=order)
+
+
+def classify_meta_ad(ad):
+    return classify_meta_ad_name(ad)
 
 
 def is_retention_google(campaign):
@@ -206,8 +226,8 @@ def process_google(gc, mtd_start, mtd_end, mtd1_end):
     def empty():
         return {"spend": 0.0, "impressions": 0}
 
-    mtd  = {"Brand": empty(), "Subcat": empty()}
-    mtd1 = {"Brand": empty(), "Subcat": empty()}
+    mtd  = defaultdict(empty)
+    mtd1 = defaultdict(empty)
     active_campaigns = set()
 
     for row in rows:
@@ -218,8 +238,6 @@ def process_google(gc, mtd_start, mtd_end, mtd1_end):
         if not is_retention_google(campaign):
             continue
         cls = classify_google_adgroup(adgroup)
-        if cls is None:
-            continue
 
         try:
             spend = float(row.get("Spend_INR", 0) or 0)
@@ -242,7 +260,7 @@ def process_google(gc, mtd_start, mtd_end, mtd1_end):
             mtd1[cls]["impressions"] += impr
 
     for period in [mtd, mtd1]:
-        for cls in ["Brand", "Subcat"]:
+        for cls in period:
             period[cls]["spend"] = round(period[cls]["spend"], 2)
 
     return mtd, mtd1, active_campaigns
@@ -354,10 +372,10 @@ def process_apptrove(gc, mtd_start, mtd_end, mtd1_end):
     def empty():
         return {"app_opened": 0, "purchase": 0}
 
-    google_mtd  = {"Brand": empty(), "Subcat": empty()}
-    google_mtd1 = {"Brand": empty(), "Subcat": empty()}
-    meta_mtd    = {"Brand": empty(), "Subcat": empty()}
-    meta_mtd1   = {"Brand": empty(), "Subcat": empty()}
+    google_mtd  = defaultdict(empty)
+    google_mtd1 = defaultdict(empty)
+    meta_mtd    = defaultdict(empty)
+    meta_mtd1   = defaultdict(empty)
 
     for row in rows:
         partner  = row.get("partner", "").strip()
@@ -379,8 +397,6 @@ def process_apptrove(gc, mtd_start, mtd_end, mtd1_end):
             if not is_retention_google(campaign):
                 continue
             cls = classify_google_adgroup(adgroup)
-            if cls is None:
-                continue
             if in_range(date_val, mtd_start, mtd_end):
                 google_mtd[cls]["app_opened"] += app_opened
                 google_mtd[cls]["purchase"]   += purchase
@@ -428,7 +444,7 @@ def build_platform_rows(platform, spend_mtd, spend_mtd1,
     rows.append([platform, "", "", "", "", "", ""])  # platform label row
     rows.append(HEADERS)
 
-    for cls in ["Brand", "Subcat"]:
+    for cls in get_segments(spend_mtd):
         impr_mtd  = spend_mtd[cls]["impressions"]
         sp_mtd    = spend_mtd[cls]["spend"]
         ao_mtd    = app_mtd[cls]["app_opened"]
@@ -453,7 +469,7 @@ def build_tables(
         rows = []
         rows.append([platform, "", "", "", "", "", ""])
         rows.append(HEADERS)
-        for cls in ["Brand", "Subcat"]:
+        for cls in get_segments(spend_mtd):
             impr_mtd  = spend_mtd[cls]["impressions"]
             impr_mtd1 = spend_mtd1[cls]["impressions"]
             sp_mtd    = spend_mtd[cls]["spend"]
@@ -487,7 +503,7 @@ def build_tables(
         rows = []
         rows.append([platform, "", "", "", "", "", ""])
         rows.append(HEADERS)
-        for cls in ["Brand", "Subcat"]:
+        for cls in get_segments(spend_mtd1):
             impr  = spend_mtd1[cls]["impressions"]
             sp    = spend_mtd1[cls]["spend"]
             ao    = app_mtd1[cls]["app_opened"]

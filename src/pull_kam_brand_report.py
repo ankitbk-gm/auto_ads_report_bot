@@ -68,8 +68,8 @@ def get_mtd():
     now_ist   = datetime.now(IST)
     today     = now_ist.date()
     yesterday = today - timedelta(days=1)
-    mtd_start = today.replace(day=1)
     mtd_end   = today if now_ist.hour >= 12 else yesterday
+    mtd_start = mtd_end.replace(day=1)
     return mtd_start, mtd_end
 
 

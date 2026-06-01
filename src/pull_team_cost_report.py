@@ -63,6 +63,11 @@ def get_periods():
         mtd_end  = today
         mtd1_end = yesterday
 
+    # Fix: derive mtd_start from mtd_end's month, not today's
+    # Prevents inverted range on 1st of month before 12 PM
+    # e.g. June 1 before 12 PM: mtd_end=May 31, so mtd_start=May 1 (correct)
+    mtd_start = mtd_end.replace(day=1)
+
     return mtd_start, mtd_end, mtd1_end
 
 
