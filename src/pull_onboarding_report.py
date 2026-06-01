@@ -212,7 +212,7 @@ def fetch_meta_reach(mtd_start, mtd_end, kyc_camps, txn_camps):
 
 # ── Process Apptrove ───────────────────────────────────────────────────────────
 
-def process_apptrove(gc, mtd_start, mtd_end, mtd1_end):
+def process_apptrove(gc, mtd_start, mtd_end, mtd1_end, google_txn_camps, meta_txn_camps):
     print("[Apptrove] Reading Apptrove_MMP...")
     rows = read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP")
 
@@ -239,10 +239,12 @@ def process_apptrove(gc, mtd_start, mtd_end, mtd1_end):
             if partner == "Google Ads (Adwords)":
                 if not channel or channel.strip() == "-": return
                 res["google_kyc_fhpv"] += fhpv
-                res["google_txn_fps"]  += fps
+                if campaign in google_txn_camps:
+                    res["google_txn_fps"] += fps
             elif partner == "Facebook":
                 res["meta_kyc_fhpv"] += fhpv
-                res["meta_txn_fps"]  += fps
+                if campaign in meta_txn_camps:
+                    res["meta_txn_fps"] += fps
             else:
                 pl = partner.lower(); ch = channel.lower()
                 if any(k in pl or k in ch for k in WA_KW):
@@ -454,7 +456,8 @@ def main():
     )
 
     app_mtd, app_mtd1 = process_apptrove(
-        gc, mtd_start, mtd_end, mtd1_end
+        gc, mtd_start, mtd_end, mtd1_end,
+        google["txn_camps"], meta["txn_camps"]
     )
 
     wa = process_whatsapp(gc, mtd_start, mtd_end, mtd1_end)

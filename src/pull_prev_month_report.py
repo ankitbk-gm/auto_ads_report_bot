@@ -322,9 +322,13 @@ def build_onboarding_section(gc, ps, pe, label):
         except: fhpv=fps=0
         if partner == "Google Ads (Adwords)":
             if not channel or channel.strip() == "-": continue
-            app["g_kyc_fhpv"]+=fhpv; app["g_txn_fps"]+=fps
+            app["g_kyc_fhpv"] += fhpv
+            if row.get("campaign","").strip() in gd["txn_camps"]:
+                app["g_txn_fps"] += fps
         elif partner == "Facebook":
-            app["m_kyc_fhpv"]+=fhpv; app["m_txn_fps"]+=fps
+            app["m_kyc_fhpv"] += fhpv
+            if row.get("campaign","").strip() in md["txn_camps"]:
+                app["m_txn_fps"] += fps
         else:
             pl=partner.lower(); ch=channel.lower()
             if any(k in pl or k in ch for k in WA_KW):
