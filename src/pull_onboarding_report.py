@@ -59,16 +59,13 @@ def get_periods():
     now_ist   = datetime.now(IST)
     today     = now_ist.date()
     yesterday = today - timedelta(days=1)
-    # On month boundary, yesterday is in previous month — use today instead
     mtd_start = today.replace(day=1)
-
     if now_ist.hour < 12:
-        mtd_end  = yesterday if yesterday.month == today.month else today
-        mtd1_end = (mtd_end - timedelta(days=1)) if mtd_end > mtd_start else mtd_start
+        mtd_end  = yesterday
+        mtd1_end = yesterday - timedelta(days=1)
     else:
         mtd_end  = today
-        mtd1_end = yesterday if yesterday.month == today.month else mtd_start
-
+        mtd1_end = yesterday
     return mtd_start, mtd_end, mtd1_end
 
 
@@ -215,7 +212,7 @@ def fetch_meta_reach(mtd_start, mtd_end, kyc_camps, txn_camps):
 
 # ── Process Apptrove ───────────────────────────────────────────────────────────
 
-def process_apptrove(gc, mtd_start, mtd_end, mtd1_end, google_kyc, google_txn, meta_txn):
+def process_apptrove(gc, mtd_start, mtd_end, mtd1_end):
     print("[Apptrove] Reading Apptrove_MMP...")
     rows = read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP")
 
@@ -236,25 +233,28 @@ def process_apptrove(gc, mtd_start, mtd_end, mtd1_end, google_kyc, google_txn, m
             fps  = int(row.get("first_purchase_success",0) or 0)
         except: fhpv=fps=0
 
-        p = partner.lower(); c = campaign.lower()
+        WA_KW = ["webengage", "whatsapp", "wati", "wa_", "wa bulk"]
 
         def acc(res):
             if partner == "Google Ads (Adwords)":
-                if not channel or channel.strip()=="-": return
-                if campaign in google_kyc: res["google_kyc_fhpv"] += fhpv
-                elif campaign in google_txn: res["google_txn_fps"] += fps
+                if not channel or channel.strip() == "-": return
+                res["google_kyc_fhpv"] += fhpv
+                res["google_txn_fps"]  += fps
             elif partner == "Facebook":
-                if any(k in c for k in ["install","otp"]): res["meta_kyc_fhpv"] += fhpv
-                elif campaign in meta_txn: res["meta_txn_fps"] += fps
-            elif "wa" in p or "whatsapp" in p:
-                if "voice" in c: return
-                res["wa_kyc_fhpv"] += fhpv; res["wa_txn_fps"] += fps
+                res["meta_kyc_fhpv"] += fhpv
+                res["meta_txn_fps"]  += fps
+            else:
+                pl = partner.lower(); ch = channel.lower()
+                if any(k in pl or k in ch for k in WA_KW):
+                    res["wa_kyc_fhpv"] += fhpv
+                    res["wa_txn_fps"]  += fps
 
         if in_m:  acc(mtd_r)
         if in_m1: acc(mtd1_r)
 
     print(f"  MTD  Google KYC FHPV:{mtd_r['google_kyc_fhpv']} TXN FPS:{mtd_r['google_txn_fps']}")
     print(f"  MTD  Meta   KYC FHPV:{mtd_r['meta_kyc_fhpv']}   TXN FPS:{mtd_r['meta_txn_fps']}")
+    print(f"  MTD  WA     KYC FHPV:{mtd_r['wa_kyc_fhpv']}     TXN FPS:{mtd_r['wa_txn_fps']}")
     return mtd_r, mtd1_r
 
 
@@ -454,8 +454,7 @@ def main():
     )
 
     app_mtd, app_mtd1 = process_apptrove(
-        gc, mtd_start, mtd_end, mtd1_end,
-        google["kyc_camps"], google["txn_camps"], meta["txn_camps"]
+        gc, mtd_start, mtd_end, mtd1_end
     )
 
     wa = process_whatsapp(gc, mtd_start, mtd_end, mtd1_end)

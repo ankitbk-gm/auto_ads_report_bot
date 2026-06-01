@@ -312,23 +312,23 @@ def build_onboarding_section(gc, ps, pe, label):
     wk_cost=round(wk_cost,2); wt_cost=round(wt_cost,2)
 
     # Apptrove
+    WA_KW = ["webengage", "whatsapp", "wati", "wa_", "wa bulk"]
     app = {"g_kyc_fhpv":0,"g_txn_fps":0,"m_kyc_fhpv":0,"m_txn_fps":0,"wa_kyc_fhpv":0,"wa_txn_fps":0}
     for row in read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP"):
-        partner=row.get("partner","").strip(); c=row.get("campaign","").strip()
+        partner=row.get("partner","").strip()
         channel=row.get("channel","").strip()
         if not in_range(row.get("Date",""), ps, pe): continue
         try: fhpv=int(row.get("first_homePage_viewed",0) or 0); fps=int(row.get("first_purchase_success",0) or 0)
         except: fhpv=fps=0
-        cn = c.lower()
         if partner == "Google Ads (Adwords)":
             if not channel or channel.strip() == "-": continue
-            if c in gd["kyc_camps"]: app["g_kyc_fhpv"]+=fhpv
-            elif c in gd["txn_camps"]: app["g_txn_fps"]+=fps
+            app["g_kyc_fhpv"]+=fhpv; app["g_txn_fps"]+=fps
         elif partner == "Facebook":
-            if any(k in cn for k in ["install","otp"]): app["m_kyc_fhpv"]+=fhpv
-            elif c in md["txn_camps"]: app["m_txn_fps"]+=fps
+            app["m_kyc_fhpv"]+=fhpv; app["m_txn_fps"]+=fps
         else:
-            app["wa_kyc_fhpv"]+=fhpv; app["wa_txn_fps"]+=fps
+            pl=partner.lower(); ch=channel.lower()
+            if any(k in pl or k in ch for k in WA_KW):
+                app["wa_kyc_fhpv"]+=fhpv; app["wa_txn_fps"]+=fps
 
     print(f"  KYC FHPV G:{app['g_kyc_fhpv']} M:{app['m_kyc_fhpv']} | TXN FPS G:{app['g_txn_fps']} M:{app['m_txn_fps']}")
     print(f"  WA KYC sent:{wk_sent} cost:{wk_cost} | WA TXN sent:{wt_sent} cost:{wt_cost}")
@@ -424,23 +424,39 @@ def build_retention_section(gc, ps, pe, label):
             cls=classify_meta_ad(ad)
             m_app[cls]["app_opened"]+=ao; m_app[cls]["purchase"]+=pu
 
-    print(f"  G reach:{g_reach} segs:{list(g_spend.keys())} | M reach:{m_reach} segs:{list(m_spend.keys())}")
+    # Aggregate to platform totals
+    def platform_totals(spend, app):
+        tot_im = sum(v["impressions"] for v in spend.values())
+        tot_sp = round(sum(v["spend"] for v in spend.values()), 2)
+        tot_ao = sum(v["app_opened"] for v in app.values())
+        tot_pu = sum(v["purchase"]   for v in app.values())
+        return tot_im, tot_sp, tot_ao, tot_pu
 
-    h = ["Segment","Reach","Impressions","CTR (App/Impr%)","Spend","App Traffic","# Orders"]
+    m_im, m_sp, m_ao, m_pu = platform_totals(m_spend, m_app)
+    g_im, g_sp, g_ao, g_pu = platform_totals(g_spend, g_app)
 
-    def prows(platform, spend, app, reach):
-        out = [[platform,"","","","","",""], [""]+h]
-        for cls in get_segments(spend):
-            im=spend[cls]["impressions"]; sp=spend[cls]["spend"]
-            ao=app[cls]["app_opened"];    pu=app[cls]["purchase"]
-            out.append([cls, reach, im, sdiv(ao,im), sp, ao, pu])
-        return out
+    print(f"  Meta  reach:{m_reach} impr:{m_im} spend:{m_sp} app:{m_ao} orders:{m_pu}")
+    print(f"  Google reach:{g_reach} impr:{g_im} spend:{g_sp} app:{g_ao} orders:{g_pu}")
+
+    h = ["Platform","Reach","Impressions","CTR (App/Impr%)","Spend","App Traffic","# Orders"]
+
+    def make_row(platform, reach, im, sp, ao, pu):
+        return [platform, reach, im, sdiv(ao, im), sp, ao, pu]
+
+    meta_row   = make_row("Meta",   m_reach, m_im, m_sp, m_ao, m_pu)
+    google_row = make_row("Google", g_reach, g_im, g_sp, g_ao, g_pu)
+
+    # Total row — sum numeric columns
+    tot_reach = m_reach + g_reach
+    tot_im    = m_im + g_im
+    tot_sp    = round(m_sp + g_sp, 2)
+    tot_ao    = m_ao + g_ao
+    tot_pu    = m_pu + g_pu
+    total_row = make_row("Total", tot_reach, tot_im, tot_sp, tot_ao, tot_pu)
 
     return (
-        [[f"3. RETENTION — {label}"],
-         ["Note: Reach is platform total, shown on each segment row"]] +
-        prows("Meta",   m_spend, m_app, m_reach) + [[]] +
-        prows("Google", g_spend, g_app, g_reach)
+        [[f"3. RETENTION — {label}"], h,
+         meta_row, google_row, total_row]
     )
 
 
