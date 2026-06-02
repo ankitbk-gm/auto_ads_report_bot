@@ -108,7 +108,12 @@ jobs:
       - name: Previous Month Report
         run: |
           sleep 30
-          python src/pull_prev_month_report.py
+          if [ "$(date +%d)" = "01" ]; then
+            echo "1st of month — running previous month report"
+            python src/pull_prev_month_report.py
+          else
+            echo "Not 1st of month — skipping previous month report"
+          fi
 
       # ── Commit Excel report back to repo ──────────────────────────────────
       - name: Commit Excel report
