@@ -169,11 +169,11 @@ def cpx(sp, cv): return "N/A" if not cv else round(sp/cv, 2)
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 1 — TEAM WISE COST
 # ══════════════════════════════════════════════════════════════════════════════
-def build_cost_section(gc, ps, pe, label):
+def build_cost_section(google_rows, meta_rows, wati_rows, we_rows, ps, pe, label):
     print("[Cost] Processing...")
     g = defaultdict(float); m = defaultdict(float); w = defaultdict(float); we = defaultdict(float)
 
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Google_Ads"):
+    for row in google_rows:
         c = row.get("Campaign","").strip()
         if not c: continue
         try: sp = float(row.get("Spend_INR",0) or 0) * GOOGLE_META_GST
@@ -181,7 +181,7 @@ def build_cost_section(gc, ps, pe, label):
         if sp > 0 and in_range(row.get("Date",""), ps, pe):
             g[map_team_google(c)] += sp
 
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Meta_Ads"):
+    for row in meta_rows:
         c = row.get("Campaign","").strip()
         if not c: continue
         try: sp = float(row.get("Spend_INR",0) or 0) * GOOGLE_META_GST
@@ -189,7 +189,7 @@ def build_cost_section(gc, ps, pe, label):
         if sp > 0 and in_range(row.get("Date",""), ps, pe):
             m[map_team_meta(c)] += sp
 
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Wati"):
+    for row in wati_rows:
         c = row.get("Campaign_Name","").strip()
         if not c: continue
         try: sent = float(row.get("Sent",0) or 0); fail = float(row.get("Failed",0) or 0)
@@ -197,7 +197,7 @@ def build_cost_section(gc, ps, pe, label):
         if in_range(row.get("Date",""), ps, pe):
             w[map_team_wati(c)] += (sent - fail) * WATI_COST_RATE
 
-    for row in read_sheet(gc, WEBENGAGE_SHEET_ID, "Whatsapp_Campaign"):
+    for row in we_rows:
         cn = row.get("Campaign Name","").strip()
         ct = row.get("Type of Campaign","").strip()
         if not cn: continue
@@ -232,14 +232,15 @@ def build_cost_section(gc, ps, pe, label):
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 2 — ONBOARDING
 # ══════════════════════════════════════════════════════════════════════════════
-def build_onboarding_section(gc, ps, pe, label):
+def build_onboarding_section(google_rows, meta_rows, wati_rows, we_rows, apptrove_rows, unique_rows,
+                             gc, ps, pe, label):
     print("[Onboarding] Processing...")
     ps_str = ps.strftime("%Y-%m-%d"); pe_str = pe.strftime("%Y-%m-%d")
 
     # Google
     gd = {"kyc_sp":0.,"txn_sp":0.,"kyc_im":0,"txn_im":0,"kyc_cl":0,"txn_cl":0,
           "kyc_camps":set(),"txn_camps":set()}
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Google_Ads"):
+    for row in google_rows:
         c = row.get("Campaign","").strip()
         if not c or not in_range(row.get("Date",""), ps, pe): continue
         try: sp=float(row.get("Spend_INR",0) or 0)*GOOGLE_META_GST; im=int(float(row.get("Impressions",0) or 0)); cl=int(float(row.get("Clicks",0) or 0))
@@ -251,7 +252,7 @@ def build_onboarding_section(gc, ps, pe, label):
     # Google reach
     g_kyc_r = g_txn_r = 0
     try:
-        for row in read_sheet(gc, GOOGLE_UNIQUE_USERS_SID, GOOGLE_UNIQUE_USERS_TAB):
+        for row in unique_rows:
             c = row.get("Campaign","").strip(); uu = row.get("Unique users","").strip()
             if not uu or uu == "--": continue
             try: v = int(str(uu).replace(",",""))
@@ -263,7 +264,7 @@ def build_onboarding_section(gc, ps, pe, label):
     # Meta
     md = {"kyc_sp":0.,"txn_sp":0.,"kyc_im":0,"txn_im":0,"kyc_cl":0,"txn_cl":0,
           "kyc_camps":set(),"txn_camps":set()}
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Meta_Ads"):
+    for row in meta_rows:
         c = row.get("Campaign","").strip()
         if not c or not in_range(row.get("Date",""), ps, pe): continue
         try: sp=float(row.get("Spend_INR",0) or 0)*GOOGLE_META_GST; im=int(float(row.get("Impressions",0) or 0)); cl=int(float(row.get("Clicks",0) or 0))
@@ -290,7 +291,7 @@ def build_onboarding_section(gc, ps, pe, label):
     # WhatsApp = Wati + WebEngage combined
     wk_sent=wk_cost=wt_sent=wt_cost=0.
     # Wati
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Wati"):
+    for row in wati_rows:
         c = row.get("Campaign_Name","").strip()
         if not c or not in_range(row.get("Date",""), ps, pe): continue
         try: sent=int(row.get("Sent",0) or 0); dlvd=int(row.get("Delivered",0) or 0)
@@ -299,7 +300,7 @@ def build_onboarding_section(gc, ps, pe, label):
         if is_wati_kyc(c): wk_sent+=sent; wk_cost+=cost
         elif is_wati_ob(c): wt_sent+=sent; wt_cost+=cost
     # WebEngage
-    for row in read_sheet(gc, WEBENGAGE_SHEET_ID, "Whatsapp_Campaign"):
+    for row in we_rows:
         cn = row.get("Campaign Name","").strip()
         ct = row.get("Type of Campaign","").strip()
         jn = row.get("Journey Name","").strip()
@@ -314,7 +315,7 @@ def build_onboarding_section(gc, ps, pe, label):
     # Apptrove
     WA_KW = ["webengage", "whatsapp", "wati", "wa_", "wa bulk"]
     app = {"g_kyc_fhpv":0,"g_txn_fps":0,"m_kyc_fhpv":0,"m_txn_fps":0,"wa_kyc_fhpv":0,"wa_txn_fps":0}
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP"):
+    for row in apptrove_rows:
         partner=row.get("partner","").strip()
         channel=row.get("channel","").strip()
         if not in_range(row.get("Date",""), ps, pe): continue
@@ -358,7 +359,8 @@ def build_onboarding_section(gc, ps, pe, label):
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 3 — RETENTION (DYNAMIC SEGMENTS)
 # ══════════════════════════════════════════════════════════════════════════════
-def build_retention_section(gc, ps, pe, label):
+def build_retention_section(google_rows, meta_rows, apptrove_rows, unique_rows,
+                             gc, ps, pe, label):
     print("[Retention] Processing...")
     ps_str = ps.strftime("%Y-%m-%d"); pe_str = pe.strftime("%Y-%m-%d")
 
@@ -366,7 +368,7 @@ def build_retention_section(gc, ps, pe, label):
     def eap(): return {"app_opened":0,"purchase":0}
 
     g_spend = defaultdict(esp); g_active = set()
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Google_Ads"):
+    for row in google_rows:
         c=row.get("Campaign","").strip(); ag=row.get("Ad_Group","").strip()
         if not is_retention_google(c) or not in_range(row.get("Date",""), ps, pe): continue
         cls=classify_google_adgroup(ag)
@@ -377,7 +379,7 @@ def build_retention_section(gc, ps, pe, label):
     for cls in g_spend: g_spend[cls]["spend"]=round(g_spend[cls]["spend"],2)
 
     m_spend = defaultdict(esp); m_active = set()
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Meta_Ads"):
+    for row in meta_rows:
         c=row.get("Campaign","").strip(); ad=row.get("Ad","").strip()
         if not is_retention_meta(c) or not in_range(row.get("Date",""), ps, pe): continue
         cls=classify_meta_ad(ad)
@@ -389,7 +391,7 @@ def build_retention_section(gc, ps, pe, label):
 
     g_reach = 0
     try:
-        for row in read_sheet(gc, GOOGLE_UNIQUE_USERS_SID, GOOGLE_UNIQUE_USERS_TAB):
+        for row in unique_rows:
             c=row.get("Campaign","").strip()
             if c not in g_active: continue
             uu=row.get("Unique users","").strip()
@@ -411,7 +413,7 @@ def build_retention_section(gc, ps, pe, label):
         except Exception as e: print(f"  [MetaReach] {e}")
 
     g_app = defaultdict(eap); m_app = defaultdict(eap)
-    for row in read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP"):
+    for row in apptrove_rows:
         partner=row.get("partner","").strip(); c=row.get("campaign","").strip()
         ag=row.get("ad_group","").strip(); ad=row.get("ad","").strip()
         channel=row.get("channel","").strip()
@@ -515,10 +517,27 @@ def main():
     ps, pe, label = get_prev_month_range()
     print(f"[Period] {label}: {ps} → {pe}\n")
     gc  = get_gc(); ts = datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S")
+
+    # Read each source tab ONCE — prevents Google Sheets 429 quota error
+    print("[Data] Reading source tabs...")
+    import time as _time
+    google_rows   = read_sheet(gc, GOOGLE_SHEET_ID, "Google_Ads");        _time.sleep(2)
+    meta_rows     = read_sheet(gc, GOOGLE_SHEET_ID, "Meta_Ads");          _time.sleep(2)
+    wati_rows     = read_sheet(gc, GOOGLE_SHEET_ID, "Wati");              _time.sleep(2)
+    apptrove_rows = read_sheet(gc, GOOGLE_SHEET_ID, "Apptrove_MMP");      _time.sleep(2)
+    we_rows       = read_sheet(gc, WEBENGAGE_SHEET_ID, "Whatsapp_Campaign"); _time.sleep(2)
+    try:
+        unique_rows = read_sheet(gc, GOOGLE_UNIQUE_USERS_SID, GOOGLE_UNIQUE_USERS_TAB)
+    except Exception as e:
+        print(f"  [Unique Users] Error: {e}"); unique_rows = []
+    print(f"  Loaded: G:{len(google_rows)} M:{len(meta_rows)} W:{len(wati_rows)} "
+          f"App:{len(apptrove_rows)} WE:{len(we_rows)} UU:{len(unique_rows)}")
+
     all_rows = (
-        build_cost_section(gc, ps, pe, label)       + [[]] * 2 +
-        build_onboarding_section(gc, ps, pe, label) + [[]] * 2 +
-        build_retention_section(gc, ps, pe, label)
+        build_cost_section(google_rows, meta_rows, wati_rows, we_rows, ps, pe, label)             + [[]] * 2 +
+        build_onboarding_section(google_rows, meta_rows, wati_rows, we_rows, apptrove_rows,
+                                 unique_rows, gc, ps, pe, label)                                   + [[]] * 2 +
+        build_retention_section(google_rows, meta_rows, apptrove_rows, unique_rows, gc, ps, pe, label)
     )
     write_sheet(gc, all_rows, ts)
     write_excel(all_rows, ts)
