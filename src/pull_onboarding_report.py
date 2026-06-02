@@ -119,25 +119,33 @@ def process_google(gc, mtd_start, mtd_end, mtd1_end):
     rows = read_sheet(gc, GOOGLE_SHEET_ID, "Google_Ads")
 
     kyc_s=0.; txn_s=0.; kyc_s1=0.; txn_s1=0.
+    kyc_impr=0; txn_impr=0; kyc_clicks=0; txn_clicks=0
     kyc_camps = set(); txn_camps = set()
 
     for row in rows:
         c = row.get("Campaign","").strip()
         d = row.get("Date","")
-        try: spend = float(row.get("Spend_INR",0) or 0) * GOOGLE_META_GST
-        except: spend = 0
+        try:
+            spend  = float(row.get("Spend_INR",0) or 0) * GOOGLE_META_GST
+            impr   = int(float(row.get("Impressions",0) or 0))
+            clicks = int(float(row.get("Clicks",0) or 0))
+        except: spend=0; impr=0; clicks=0
         if spend <= 0: continue
 
         if is_google_kyc(c):
-            if in_range(d, mtd_start, mtd_end):  kyc_s += spend; kyc_camps.add(c)
+            if in_range(d, mtd_start, mtd_end):
+                kyc_s+=spend; kyc_camps.add(c); kyc_impr+=impr; kyc_clicks+=clicks
             if in_range(d, mtd_start, mtd1_end): kyc_s1 += spend
         elif is_google_txn(c):
-            if in_range(d, mtd_start, mtd_end):  txn_s += spend; txn_camps.add(c)
+            if in_range(d, mtd_start, mtd_end):
+                txn_s+=spend; txn_camps.add(c); txn_impr+=impr; txn_clicks+=clicks
             if in_range(d, mtd_start, mtd1_end): txn_s1 += spend
 
     print(f"  KYC spend MTD:{round(kyc_s,2)} MTD-1:{round(kyc_s1,2)} | TXN MTD:{round(txn_s,2)} MTD-1:{round(txn_s1,2)}")
     return {"kyc_spend":round(kyc_s,2), "kyc_spend1":round(kyc_s1,2),
             "txn_spend":round(txn_s,2), "txn_spend1":round(txn_s1,2),
+            "kyc_impr":kyc_impr, "txn_impr":txn_impr,
+            "kyc_clicks":kyc_clicks, "txn_clicks":txn_clicks,
             "kyc_camps":kyc_camps, "txn_camps":txn_camps}
 
 
@@ -186,28 +194,39 @@ def process_meta(gc, mtd_start, mtd_end, mtd1_end):
             "kyc_camps":kyc_camps, "txn_camps":txn_camps}
 
 
-def fetch_meta_reach(mtd_start, mtd_end, kyc_camps, txn_camps):
+def safe_ctr(clicks, impr):
+    return "N/A" if not impr else round(clicks / impr * 100, 2)
+
+def safe_freq(impr, reach):
+    return "N/A" if not reach else round(impr / reach, 2)
+
+def fetch_meta_stats(mtd_start, mtd_end, kyc_camps, txn_camps):
+    """Fetch reach, impressions, clicks for KYC and TXN Meta campaigns."""
     access_token = os.getenv("META_ACCESS_TOKEN")
     ad_account   = os.getenv("META_AD_ACCOUNT_ID")
     if not access_token or not ad_account:
-        return 0, 0
+        return 0, 0, 0, 0, 0, 0
     url    = f"https://graph.facebook.com/v18.0/{ad_account}/insights"
     params = {"access_token": access_token, "level": "campaign",
-              "fields": "campaign_name,reach",
+              "fields": "campaign_name,reach,impressions,clicks",
               "time_range": f'{{"since":"{mtd_start}","until":"{mtd_end}"}}',
               "limit": 500}
-    kyc_r=0; txn_r=0
+    kyc_r=0; txn_r=0; kyc_impr=0; txn_impr=0; kyc_clicks=0; txn_clicks=0
     try:
         data = req.get(url, params=params, timeout=30).json().get("data",[])
         for item in data:
-            c = item.get("campaign_name","").strip()
-            r = int(item.get("reach",0) or 0)
-            if c in kyc_camps:   kyc_r += r
-            elif c in txn_camps: txn_r += r
+            cn    = item.get("campaign_name","").strip()
+            r     = int(item.get("reach",0) or 0)
+            impr  = int(item.get("impressions",0) or 0)
+            click = int(item.get("clicks",0) or 0)
+            if cn in kyc_camps:
+                kyc_r+=r; kyc_impr+=impr; kyc_clicks+=click
+            elif cn in txn_camps:
+                txn_r+=r; txn_impr+=impr; txn_clicks+=click
     except Exception as e:
-        print(f"[Meta Reach] Error: {e}")
-    print(f"[Meta Reach] KYC:{kyc_r} TXN:{txn_r}")
-    return kyc_r, txn_r
+        print(f"[Meta Stats] Error: {e}")
+    print(f"[Meta Stats] KYC reach:{kyc_r} impr:{kyc_impr} | TXN reach:{txn_r} impr:{txn_impr}")
+    return kyc_r, txn_r, kyc_impr, txn_impr, kyc_clicks, txn_clicks
 
 
 # ── Process Apptrove ───────────────────────────────────────────────────────────
@@ -320,18 +339,32 @@ def process_whatsapp(gc, mtd_start, mtd_end, mtd1_end):
 def sd(n,d): return "N/A" if not d else round(n/d,2)
 
 def make_kyc_txn_tables(label, g_kyc_r, g_txn_r, g_kyc_s, g_txn_s, app,
-                         m_kyc_r, m_kyc_s, m_txn_s,
+                         m_kyc_r, m_txn_r, m_kyc_s, m_txn_s,
+                         g_kyc_impr, g_txn_impr, g_kyc_clicks, g_txn_clicks,
+                         m_kyc_impr, m_txn_impr, m_kyc_clicks, m_txn_clicks,
                          wa_kyc_s_val, wa_kyc_c, wa_txn_s_val, wa_txn_c):
-    kh = ["Channel","Target Audience","First Home Page View","Amount Spent","Cost Per KYC"]
-    th = ["Channel","Target Audience","First Purchase Success","Amount Spent","Cost Per TXN"]
+    kh = ["Channel","Reach","Impressions","CTR (%)","Frequency",
+          "First Home Page View","Amount Spent","Cost Per KYC"]
+    th = ["Channel","Reach","Impressions","CTR (%)","Frequency",
+          "First Purchase Success","Amount Spent","Cost Per TXN"]
     kyc = [[f"KYC — {label}"], kh,
-           ["Google",   g_kyc_r,    app["google_kyc_fhpv"], g_kyc_s, sd(g_kyc_s, app["google_kyc_fhpv"])],
-           ["Meta",     m_kyc_r,    app["meta_kyc_fhpv"],   m_kyc_s, sd(m_kyc_s, app["meta_kyc_fhpv"])],
-           ["WhatsApp", wa_kyc_s_val, app["wa_kyc_fhpv"],   wa_kyc_c, sd(wa_kyc_c, app["wa_kyc_fhpv"])]]
+           ["Google", g_kyc_r, g_kyc_impr, safe_ctr(g_kyc_clicks,g_kyc_impr),
+            safe_freq(g_kyc_impr,g_kyc_r), app["google_kyc_fhpv"],
+            g_kyc_s, sd(g_kyc_s, app["google_kyc_fhpv"])],
+           ["Meta",   m_kyc_r, m_kyc_impr, safe_ctr(m_kyc_clicks,m_kyc_impr),
+            safe_freq(m_kyc_impr,m_kyc_r), app["meta_kyc_fhpv"],
+            m_kyc_s, sd(m_kyc_s, app["meta_kyc_fhpv"])],
+           ["WhatsApp", wa_kyc_s_val, "N/A","N/A","N/A",
+            app["wa_kyc_fhpv"], wa_kyc_c, sd(wa_kyc_c, app["wa_kyc_fhpv"])]]
     txn = [[f"First Txn — {label}"], th,
-           ["Google",   g_txn_r,    app["google_txn_fps"],  g_txn_s, sd(g_txn_s, app["google_txn_fps"])],
-           ["Meta",     m_kyc_r,    app["meta_txn_fps"],    m_txn_s, sd(m_txn_s, app["meta_txn_fps"])],
-           ["WhatsApp", wa_txn_s_val, app["wa_txn_fps"],    wa_txn_c, sd(wa_txn_c, app["wa_txn_fps"])]]
+           ["Google", g_txn_r, g_txn_impr, safe_ctr(g_txn_clicks,g_txn_impr),
+            safe_freq(g_txn_impr,g_txn_r), app["google_txn_fps"],
+            g_txn_s, sd(g_txn_s, app["google_txn_fps"])],
+           ["Meta",   m_txn_r, m_txn_impr, safe_ctr(m_txn_clicks,m_txn_impr),
+            safe_freq(m_txn_impr,m_txn_r), app["meta_txn_fps"],
+            m_txn_s, sd(m_txn_s, app["meta_txn_fps"])],
+           ["WhatsApp", wa_txn_s_val, "N/A","N/A","N/A",
+            app["wa_txn_fps"], wa_txn_c, sd(wa_txn_c, app["wa_txn_fps"])]]
     return kyc, txn
 
 
@@ -446,11 +479,11 @@ def main():
     g_kyc_r, g_txn_r = process_google_unique_users(gc, google["kyc_camps"], google["txn_camps"])
 
     meta         = process_meta(gc, mtd_start, mtd_end, mtd1_end)
-    m_kyc_r, _   = fetch_meta_reach(
+    m_kyc_r, m_txn_r, m_kyc_impr, m_txn_impr, m_kyc_clicks, m_txn_clicks = fetch_meta_stats(
         mtd_start.strftime("%Y-%m-%d"), mtd_end.strftime("%Y-%m-%d"),
         meta["kyc_camps"], meta["txn_camps"]
     )
-    m_kyc_r1, _  = fetch_meta_reach(
+    m_kyc_r1, m_txn_r1, m_kyc_impr1, m_txn_impr1, m_kyc_clicks1, m_txn_clicks1 = fetch_meta_stats(
         mtd_start.strftime("%Y-%m-%d"), mtd1_end.strftime("%Y-%m-%d"),
         meta["kyc_camps"], meta["txn_camps"]
     )
@@ -468,12 +501,16 @@ def main():
 
     kyc_mtd, txn_mtd = make_kyc_txn_tables(
         mtd_label, g_kyc_r, g_txn_r, google["kyc_spend"], google["txn_spend"], app_mtd,
-        m_kyc_r, meta["kyc_spend"], meta["txn_spend"],
+        m_kyc_r, m_txn_r, meta["kyc_spend"], meta["txn_spend"],
+        google["kyc_impr"], google["txn_impr"], google["kyc_clicks"], google["txn_clicks"],
+        m_kyc_impr, m_txn_impr, m_kyc_clicks, m_txn_clicks,
         kyc_sent, kyc_cost, txn_sent, txn_cost
     )
     kyc_mtd1, txn_mtd1 = make_kyc_txn_tables(
         mtd1_label, g_kyc_r, g_txn_r, google["kyc_spend1"], google["txn_spend1"], app_mtd1,
-        m_kyc_r1, meta["kyc_spend1"], meta["txn_spend1"],
+        m_kyc_r1, m_txn_r1, meta["kyc_spend1"], meta["txn_spend1"],
+        google["kyc_impr"], google["txn_impr"], google["kyc_clicks"], google["txn_clicks"],
+        m_kyc_impr1, m_txn_impr1, m_kyc_clicks1, m_txn_clicks1,
         kyc_sent1, kyc_cost1, txn_sent1, txn_cost1
     )
     kyc_chg, txn_chg = make_change_tables(kyc_mtd, txn_mtd, kyc_mtd1, txn_mtd1)
