@@ -12,7 +12,7 @@ load_dotenv()
 APPTROVE_API_KEY      = os.getenv("APPTROVE_MMP_API_KEY")
 APPTROVE_EMAIL        = os.getenv("APPTROVE_EMAIL")
 APPTROVE_PASSWORD     = os.getenv("APPTROVE_PASSWORD")
-APPTROVE_LOGIN_URL    = "https://api.apptrove.com/api/v1/user/login"
+APPTROVE_LOGIN_URL    = "https://dashboard.apptrove.com/internal/auth/login"
 
 
 def get_apptrove_token() -> str:
