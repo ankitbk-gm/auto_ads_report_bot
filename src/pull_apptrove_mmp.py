@@ -123,10 +123,8 @@ def fetch_apptrove_data(start_date: str, end_date: str) -> list[dict]:
     date is included via groupBy[] so records carry their own date.
     Uevents = Unique Events Accepted (what we always want).
     """
-    token = get_apptrove_token()
     headers = {
-        "Authorization": f"Bearer {token}",
-        "api-key": token,
+        "api-key": APPTROVE_API_KEY,
         "Accept": "application/json",
     }
     params = [
