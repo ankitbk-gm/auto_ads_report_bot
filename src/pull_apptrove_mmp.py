@@ -39,9 +39,9 @@ def get_apptrove_token() -> str:
                      or body.get("data", {}).get("api_key")
                      or body.get("api_key"))
             if token:
-                print(f"  [Apptrove Auth] Token obtained successfully")
+                print(f"  [Apptrove Auth] Token obtained: {str(token)[:30]}...")
                 return token
-            print(f"  [Apptrove Auth] Response: {str(body)[:300]}")
+            print(f"  [Apptrove Auth] Full response: {str(body)[:500]}")
         else:
             print(f"  [Apptrove Auth] Login failed: {resp.text[:200]}")
     except Exception as e:
@@ -125,6 +125,7 @@ def fetch_apptrove_data(start_date: str, end_date: str) -> list[dict]:
     """
     token = get_apptrove_token()
     headers = {
+        "Authorization": f"Bearer {token}",
         "api-key": token,
         "Accept": "application/json",
     }
