@@ -9,7 +9,44 @@ from google.oauth2.service_account import Credentials
 
 load_dotenv()
 
-APPTROVE_API_KEY = os.getenv("APPTROVE_MMP_API_KEY")
+APPTROVE_API_KEY      = os.getenv("APPTROVE_MMP_API_KEY")
+APPTROVE_EMAIL        = os.getenv("APPTROVE_EMAIL")
+APPTROVE_PASSWORD     = os.getenv("APPTROVE_PASSWORD")
+APPTROVE_LOGIN_URL    = "https://api.apptrove.com/api/v1/user/login"
+
+
+def get_apptrove_token() -> str:
+    """
+    Login to Apptrove and return a fresh session token.
+    Falls back to static API key if credentials not set.
+    """
+    if not APPTROVE_EMAIL or not APPTROVE_PASSWORD:
+        print("  [Apptrove Auth] No email/password set — using static API key")
+        return APPTROVE_API_KEY
+    try:
+        resp = requests.post(
+            APPTROVE_LOGIN_URL,
+            json={"email": APPTROVE_EMAIL, "password": APPTROVE_PASSWORD},
+            headers={"Accept": "application/json"},
+            timeout=30
+        )
+        print(f"  [Apptrove Auth] Login status: {resp.status_code}")
+        if resp.ok:
+            body = resp.json()
+            # Try common token field names
+            token = (body.get("data", {}).get("token")
+                     or body.get("token")
+                     or body.get("data", {}).get("api_key")
+                     or body.get("api_key"))
+            if token:
+                print(f"  [Apptrove Auth] Token obtained successfully")
+                return token
+            print(f"  [Apptrove Auth] Response: {str(body)[:300]}")
+        else:
+            print(f"  [Apptrove Auth] Login failed: {resp.text[:200]}")
+    except Exception as e:
+        print(f"  [Apptrove Auth] Login error: {e}")
+    return APPTROVE_API_KEY
 APPTROVE_APP_ID = os.getenv("APPTROVE_APP_ID")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 SERVICE_ACCOUNT_PATH = os.getenv("GOOGLE_SERVICE_ACCOUNT_PATH", "service_account.json")
@@ -86,8 +123,9 @@ def fetch_apptrove_data(start_date: str, end_date: str) -> list[dict]:
     date is included via groupBy[] so records carry their own date.
     Uevents = Unique Events Accepted (what we always want).
     """
+    token = get_apptrove_token()
     headers = {
-        "api-key": APPTROVE_API_KEY,
+        "api-key": token,
         "Accept": "application/json",
     }
     params = [
@@ -104,9 +142,6 @@ def fetch_apptrove_data(start_date: str, end_date: str) -> list[dict]:
         params.append(("eid[]", eid))
 
     response = requests.get(APPTROVE_API_URL, headers=headers, params=params, timeout=60)
-    if not response.ok:
-        print(f"  [Apptrove] Status: {response.status_code}")
-        print(f"  [Apptrove] Response body: {response.text[:500]}")
     response.raise_for_status()
 
     body = response.json()

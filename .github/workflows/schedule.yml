@@ -52,6 +52,8 @@ jobs:
           WATI_API_ENDPOINT=${{ secrets.WATI_API_ENDPOINT }}
           APPTROVE_MMP_API_KEY=${{ secrets.APPTROVE_MMP_API_KEY }}
           APPTROVE_APP_ID=${{ secrets.APPTROVE_APP_ID }}
+          APPTROVE_EMAIL=${{ secrets.APPTROVE_EMAIL }}
+          APPTROVE_PASSWORD=${{ secrets.APPTROVE_PASSWORD }}
           ONEDRIVE_EXCEL_PATH=reports/Team Wise Cost.xlsx
           EOF
 
