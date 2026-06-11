@@ -143,6 +143,8 @@ def fetch_apptrove_data(start_date: str, end_date: str) -> list[dict]:
         params.append(("eid[]", eid))
 
     response = requests.get(APPTROVE_API_URL, headers=headers, params=params, timeout=60)
+    if not response.ok:
+        print(f"  [Apptrove API] Status: {response.status_code} | Body: {response.text[:400]}")
     response.raise_for_status()
 
     body = response.json()
