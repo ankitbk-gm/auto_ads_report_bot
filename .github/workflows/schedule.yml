@@ -52,62 +52,89 @@ jobs:
           WATI_API_ENDPOINT=${{ secrets.WATI_API_ENDPOINT }}
           APPTROVE_MMP_API_KEY=${{ secrets.APPTROVE_MMP_API_KEY }}
           APPTROVE_APP_ID=${{ secrets.APPTROVE_APP_ID }}
-          APPTROVE_EMAIL=${{ secrets.APPTROVE_EMAIL }}
-          APPTROVE_PASSWORD=${{ secrets.APPTROVE_PASSWORD }}
           ONEDRIVE_EXCEL_PATH=reports/Team Wise Cost.xlsx
           EOF
 
       # ── Data pull scripts ──────────────────────────────────────────────────
       - name: Pull Meta Ads
+        id: pull_meta
+        continue-on-error: true
         run: python src/pull_meta.py
 
       - name: Pull Apptrove MMP
+        id: pull_apptrove
+        continue-on-error: true
         run: |
           sleep 10
           python src/pull_apptrove_mmp.py
 
       - name: Pull Wati
+        id: pull_wati
+        continue-on-error: true
         run: |
           sleep 10
           python src/pull_wati.py
 
       - name: Pull WebEngage Gmail
+        id: pull_webengage_gmail
+        continue-on-error: true
         run: |
           sleep 10
           python src/pull_webengage_gmail.py
 
       # ── Report scripts ─────────────────────────────────────────────────────
       - name: Team Cost Report
+        id: team_cost_report
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_team_cost_report.py
 
       - name: Onboarding Report
+        id: onboarding_report
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_onboarding_report.py
 
       - name: Retention Report
+        id: retention_report
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_retention_report.py
 
       - name: KAM Brand Report
+        id: kam_brand_report
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_kam_brand_report.py
 
       - name: In-app Subcat Report
+        id: inapp_subcat_report
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_inapp_subcat_report.py
 
       - name: WebEngage Analysis
+        id: webengage_analysis
+        continue-on-error: true
         run: |
           sleep 30
           python src/pull_webengage_analysis.py
 
+      - name: Campaign Performance Report
+        id: campaign_performance_report
+        continue-on-error: true
+        run: |
+          sleep 30
+          python src/pull_campaign_performance_report.py
+
       - name: Previous Month Report
+        id: previous_month_report
+        continue-on-error: true
         run: |
           sleep 30
           if [ "$(date +%d)" = "01" ]; then
@@ -125,3 +152,51 @@ jobs:
           git add "reports/Team Wise Cost.xlsx"
           git diff --staged --quiet || git commit -m "Auto-update Excel reports $(date -u '+%Y-%m-%d %H:%M') UTC"
           git push
+
+      # ── Surface failures even though the steps above are continue-on-error ─
+      - name: Run summary
+        if: always()
+        run: |
+          echo "## 📊 Daily Marketing Reports — Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+
+          failed=0
+
+          check() {
+            local name="$1"
+            local outcome="$2"
+            if [ "$outcome" = "failure" ]; then
+              echo "❌ FAILED   $name"
+              echo "| $name | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+              failed=$((failed + 1))
+            elif [ "$outcome" = "skipped" ]; then
+              echo "⏭️  SKIPPED  $name"
+              echo "| $name | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ OK       $name"
+              echo "| $name | ✅ OK |" >> $GITHUB_STEP_SUMMARY
+            fi
+          }
+
+          check "Pull Meta Ads"               "${{ steps.pull_meta.outcome }}"
+          check "Pull Apptrove MMP"           "${{ steps.pull_apptrove.outcome }}"
+          check "Pull Wati"                   "${{ steps.pull_wati.outcome }}"
+          check "Pull WebEngage Gmail"        "${{ steps.pull_webengage_gmail.outcome }}"
+          check "Team Cost Report"            "${{ steps.team_cost_report.outcome }}"
+          check "Onboarding Report"           "${{ steps.onboarding_report.outcome }}"
+          check "Retention Report"            "${{ steps.retention_report.outcome }}"
+          check "KAM Brand Report"            "${{ steps.kam_brand_report.outcome }}"
+          check "In-app Subcat Report"        "${{ steps.inapp_subcat_report.outcome }}"
+          check "WebEngage Analysis"          "${{ steps.webengage_analysis.outcome }}"
+          check "Campaign Performance Report" "${{ steps.campaign_performance_report.outcome }}"
+          check "Previous Month Report"       "${{ steps.previous_month_report.outcome }}"
+
+          echo ""
+          if [ "$failed" -gt 0 ]; then
+            echo "RESULT: $failed step(s) failed — see table above"
+            exit 1
+          else
+            echo "RESULT: all steps completed successfully"
+          fi
